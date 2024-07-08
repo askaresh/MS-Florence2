@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  chainlit:
+    build: .
+    ports:
+      - "8010:8010"
+    environment:
+      - MODEL_ID=microsoft/Florence-2-large
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - .:/app
+    command: python -u chainlit_app.py
