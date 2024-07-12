@@ -45,7 +45,7 @@ We defined several task prompts to leverage the Florence-2-large model's capabil
    git clone https://github.com/yourusername/MS-FLORENCE2.git
    cd MS-FLORENCE2
 
-2. Create a .env file with the following content:
+2. (Optional) - File now included in the repo - Create a .env file with the following content:
     env
     Copy code
     MODEL_ID=microsoft/Florence-2-large
