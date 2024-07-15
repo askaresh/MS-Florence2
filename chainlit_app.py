@@ -71,32 +71,67 @@ async def process_image(session_id):
         with open(image.path, 'rb') as img_file:
             image_data = img_file.read()
         
+        original_image = Image.open(image.path)
         result = model.run_example(task_type, text_input, image_data)
         
         if task_type in ["<OD>", "<DENSE_REGION_CAPTION>", "<REGION_PROPOSAL>", "<CAPTION_TO_PHRASE_GROUNDING>", "<OPEN_VOCABULARY_DETECTION>"]:
-            fig = plot_bbox(Image.open(image.path), result[task_type])
+            fig = plot_bbox(original_image, result[task_type])
             output_image = fig_to_pil(fig)
-            buf = io.BytesIO()
-            output_image.save(buf, format='PNG')
-            buf.seek(0)
-            await cl.Message(content=f"Result: {result}", elements=[cl.Image(name="result.png", content=buf.getvalue())]).send()
+            
+            original_buf = io.BytesIO()
+            original_image.save(original_buf, format='PNG')
+            original_buf.seek(0)
+            
+            output_buf = io.BytesIO()
+            output_image.save(output_buf, format='PNG')
+            output_buf.seek(0)
+            
+            await cl.Message(content=f"Result: {result}", elements=[
+                cl.Image(name="original.png", content=original_buf.getvalue(), display="inline"),
+                cl.Image(name="result.png", content=output_buf.getvalue(), display="inline")
+            ]).send()
+            
         elif task_type in ["<REFERRING_EXPRESSION_SEGMENTATION>", "<REGION_TO_SEGMENTATION>"]:
-            output_image = Image.open(image.path).copy()
-            draw_polygons(output_image, result[task_type], fill_mask=True)
-            buf = io.BytesIO()
-            output_image.save(buf, format='PNG')
-            buf.seek(0)
-            await cl.Message(content=f"Result: {result}", elements=[cl.Image(name="result.png", content=buf.getvalue())]).send()
+            output_image = original_image.copy()
+            segmentation_result = result[task_type]
+            draw_polygons(output_image, segmentation_result, fill_mask=True)
+            
+            original_buf = io.BytesIO()
+            original_image.save(original_buf, format='PNG')
+            original_buf.seek(0)
+            
+            output_buf = io.BytesIO()
+            output_image.save(output_buf, format='PNG')
+            output_buf.seek(0)
+            
+            logger.info("Segmentation image saved to buffer")
+            await cl.Message(content="Segmentation complete", elements=[
+                cl.Image(name="original.png", content=original_buf.getvalue(), display="inline"),
+                cl.Image(name="segmented.png", content=output_buf.getvalue(), display="inline")
+            ]).send()
+            logger.info("Segmentation message sent")
+            
         elif task_type == "<OCR_WITH_REGION>":
-            output_image = Image.open(image.path).copy()
+            output_image = original_image.copy()
             draw_ocr_bboxes(output_image, result[task_type])
-            buf = io.BytesIO()
-            output_image.save(buf, format='PNG')
-            buf.seek(0)
-            await cl.Message(content=f"Result: {result}", elements=[cl.Image(name="result.png", content=buf.getvalue())]).send()
+            
+            original_buf = io.BytesIO()
+            original_image.save(original_buf, format='PNG')
+            original_buf.seek(0)
+            
+            output_buf = io.BytesIO()
+            output_image.save(output_buf, format='PNG')
+            output_buf.seek(0)
+            
+            await cl.Message(content=f"Result: {result}", elements=[
+                cl.Image(name="original.png", content=original_buf.getvalue(), display="inline"),
+                cl.Image(name="result.png", content=output_buf.getvalue(), display="inline")
+            ]).send()
+            
         else:
             await cl.Message(content=f"Result: {result}").send()
         
+        logger.info(f"{task_type} task completed and message sent")
         user_session.pop(session_id, None)
     except Exception as e:
         logger.exception(f"Error in process_image function: {str(e)}")

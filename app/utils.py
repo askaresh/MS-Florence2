@@ -34,37 +34,34 @@ def plot_bbox(image, data):
 def draw_polygons(image, prediction, fill_mask=False):
     draw = ImageDraw.Draw(image)
     width, height = image.size
+    logger.info(f"Image size: {width}x{height}")
 
-    logger.info(f"Drawing {len(prediction['polygons'])} polygons")
+    polygons = prediction['polygons']
+    labels = prediction['labels']
 
-    for i, (polygons, label) in enumerate(zip(prediction['polygons'], prediction['labels'])):
-        color = random.choice(colormap)
-        fill_color = random.choice(colormap) if fill_mask else None
+    if isinstance(polygons[0], list) and isinstance(polygons[0][0], list):
+        polygons = polygons[0]
 
-        for polygon in polygons:
-            if len(polygon) < 3:
-                logger.warning(f"Skipping polygon {i} because it has less than 3 points: {polygon}")
-                continue
+    color = (255, 0, 0, 128)  # Red with 50% opacity
+    outline_color = (255, 0, 0)  # Solid red for outline
 
-            try:
-                # Convert all coordinates to integers and ensure they're within image boundaries
-                scaled_polygon = [(max(0, min(int(x), width - 1)), max(0, min(int(y), height - 1))) for x, y in polygon]
+    try:
+        scaled_polygon = [(max(0, min(int(x), width - 1)), max(0, min(int(y), height - 1))) 
+                          for x, y in zip(polygons[0][::2], polygons[0][1::2])]
+        
+        if len(scaled_polygon) > 2:
+            if fill_mask:
+                draw.polygon(scaled_polygon, fill=color, outline=outline_color)
+            else:
+                draw.line(scaled_polygon + [scaled_polygon[0]], fill=outline_color, width=3)
 
-                # Draw the polygon
-                if fill_mask:
-                    draw.polygon(scaled_polygon, outline=color, fill=fill_color)
-                else:
-                    draw.polygon(scaled_polygon, outline=color)
+        # Add a visible marker to confirm drawing occurred
+        draw.text((10, 10), "Segmentation applied", fill=(255, 0, 0))
 
-                # Draw the label
-                x, y = scaled_polygon[0]
-                draw.text((x, y-15), label, fill=color)
+        logger.info(f"Drew polygon with {len(scaled_polygon)} points")
+    except Exception as e:
+        logger.error(f"Error drawing polygon: {str(e)}")
 
-            except Exception as e:
-                logger.error(f"Error drawing polygon {i}: {str(e)}")
-                logger.error(f"Polygon data: {polygon}")
-
-    logger.info("Finished drawing polygons")
     return image
 
 def draw_ocr_bboxes(image, prediction):
